@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import '../lib/features/inventario/domain/entities/producto.dart';
-import '../lib/features/inventario/domain/repositories/inventario_repository.dart';
-import '../lib/features/inventario/presentation/states/ui_state.dart';
-import '../lib/features/inventario/presentation/viewmodels/inventario_viewmodel.dart';
+import 'package:flutter_prueba/features/inventario/domain/entities/producto.dart';
+import 'package:flutter_prueba/features/inventario/domain/repositories/inventario_repository.dart';
+import 'package:flutter_prueba/features/inventario/presentation/states/ui_state.dart';
+import 'package:flutter_prueba/features/inventario/presentation/viewmodels/inventario_viewmodel.dart';
 
 class RepositorioFalso implements InventarioRepository {
   final List<Producto>? respuesta;
