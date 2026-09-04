@@ -32,8 +32,8 @@ conservador para el primer sprint.
 
 | ID | Historia | Puntos |
 |---|---|---:|
-| US-01 | Registro de usuario | 5 |
-| US-02 | Inicio/registro de acceso seguro | 5 |
+| US-01 | Inicio de sesión | 5 |
+| US-02 | Registro de usuario | 5 |
 
 **Total comprometido: 10 puntos**
 
@@ -42,7 +42,7 @@ para el Sprint 1.
 
 ## Plan de entrega
 
-### US-01 — Registro de usuario
+### US-01 — Inicio de sesión
 
 Tareas:
 
@@ -56,7 +56,7 @@ Tareas:
 
 Responsable inicial: Integrante 1.
 
-### US-02 — Acceso a la aplicación
+### US-02 — Registro de usuario
 
 Tareas:
 
