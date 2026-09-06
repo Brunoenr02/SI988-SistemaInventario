@@ -2,9 +2,7 @@
 
 ## Sprint Goal
 
-Al final del Sprint 1, un usuario podrá acceder de forma segura a SITRA-Luz
-mediante registro e inicio de sesión, dejando preparada la base de acceso
-para continuar con el flujo de solicitudes de medicamentos.
+Al final del Sprint 1, un usuario podrá acceder de forma segura a SITRA-Luz mediante registro e inicio de sesión, dejando preparada la base de acceso para continuar con el flujo de solicitudes de medicamentos.
 
 ## Fechas
 
@@ -17,16 +15,17 @@ para continuar con el flujo de solicitudes de medicamentos.
 
 ### Cálculo
 
-3 Developers × 10 días hábiles × 3 horas por día = 90 horas
+Para el cálculo de la capacidad se consideran 3 desarrolladores, 7 días hábiles efectivos dentro del periodo del Sprint y 3 horas de trabajo por día:
+
+3 Developers × 7 días hábiles × 3 horas por día = 63 horas
 
 ### Descuentos
 
-- Eventos Scrum: aproximadamente 8 horas.
-- Imprevistos: 15 %.
-- Horas efectivas aproximadas: 70 horas.
+- Eventos Scrum: aproximadamente 6 horas.
+- Imprevistos: 15 % sobre las horas restantes.
+- Horas efectivas aproximadas: 48 horas.
 
-Por no existir velocidad histórica, el equipo adopta un compromiso
-conservador para el primer sprint.
+Por no existir velocidad histórica, el equipo adopta un compromiso conservador para el primer Sprint.
 
 ## Historias seleccionadas
 
@@ -47,10 +46,13 @@ para el Sprint 1.
 Tareas:
 
 - Crear pantalla de registro.
+- Crear pantalla de inicio de sesión.
+- Implementar campos de correo electrónico y contraseña.
 - Validar campos obligatorios.
-- Validar formato del correo.
-- Implementar registro mediante el servicio correspondiente.
-- Mostrar mensajes de éxito y error.
+- Validar formato del correo electrónico.
+- Implementar autenticación mediante el servicio correspondiente.
+- Gestionar la sesión del usuario.
+- Mostrar mensajes de error cuando las credenciales sean incorrectas.
 - Probar escenarios Gherkin.
 - Realizar autoprueba en el emulador.
 
@@ -60,10 +62,13 @@ Responsable inicial: Integrante 1.
 
 Tareas:
 
-- Crear pantalla de inicio de sesión.
-- Validar credenciales.
-- Gestionar sesión del usuario.
-- Mostrar mensajes de error.
+- Crear pantalla de registro.
+- Implementar los campos requeridos para el registro.
+- Validar campos obligatorios.
+- Validar formato del correo electrónico.
+- Validar las condiciones requeridas para el registro.
+- Implementar registro mediante el servicio correspondiente.
+- Mostrar mensajes de éxito y error.
 - Probar escenarios Gherkin.
 - Realizar autoprueba en el emulador.
 
@@ -71,10 +76,11 @@ Responsable inicial: Integrante 2.
 
 ### Tareas técnicas
 
-- Revisar estructura actual del proyecto.
-- Preparar rama de desarrollo del Sprint 1.
-- Configurar entorno de pruebas.
-- Verificar integración con el servicio.
+- Revisar la estructura actual del proyecto.
+- Preparar la rama de desarrollo del Sprint 1.
+- Configurar el entorno de pruebas.
+- Verificar la integración con el servicio.
+- Verificar el flujo de autenticación y registro.
 - Registrar impedimentos en GitHub Projects.
 
 Responsable inicial: Integrante 3.
@@ -85,12 +91,12 @@ Responsable inicial: Integrante 3.
 |---|---|---|
 | Problemas de conexión con el servicio | Alto | Registrar impedimento y utilizar datos de prueba mientras se resuelve. |
 | Errores en autenticación | Alto | Probar escenarios positivos y negativos antes de pasar a revisión. |
-| Falta de tiempo | Medio | Mantener el compromiso en 10 puntos y respetar el WIP. |
+| Falta de tiempo | Medio | Mantener el compromiso en 10 puntos y respetar el WIP establecido. |
 
 ## Acuerdo de la Daily
 
 - Hora: 10:00 a. m.
-- Canal: GitHub / comunicación del equipo.
+- Canal: canal de comunicación del equipo y GitHub Projects.
 - Duración máxima: 15 minutos.
 
 Cada integrante responderá:
@@ -99,16 +105,17 @@ Cada integrante responderá:
 2. ¿Qué haré hoy?
 3. ¿Tengo algún impedimento?
 
-Los impedimentos se registrarán en GitHub Projects.
+Los impedimentos identificados durante la Daily se registrarán en GitHub Projects para su seguimiento.
 
 ## Prueba del Sprint Goal
 
 El Sprint Goal fue definido antes de seleccionar las historias.
 
-La eliminación de una historia no debe interpretarse como una simple suma
-de funcionalidades; el equipo revisará que el objetivo siga siendo
-alcanzable y que las historias seleccionadas contribuyan directamente al
-objetivo del sprint.
+- Si se elimina US-01 — Inicio de sesión, el usuario no podrá acceder mediante autenticación.
+- Si se elimina US-02 — Registro de usuario, un usuario nuevo no podrá crear una cuenta para acceder al sistema.
+- Por lo tanto, ambas historias son necesarias para cumplir el Sprint Goal de habilitar el acceso seguro mediante registro e inicio de sesión.
+
+El equipo verificará al finalizar el Sprint que ambas funcionalidades estén integradas y puedan ser probadas mediante el emulador.
 
 ## Definition of Done
 
@@ -117,6 +124,6 @@ Una historia podrá pasar a "Listo" cuando:
 - Los criterios de aceptación estén verificados.
 - El código compile correctamente.
 - La funcionalidad haya sido probada en el emulador.
-- La Pull Request haya sido revisada por otro integrante.
+- La Pull Request haya sido revisada por otro integrante diferente al autor.
 - CI se encuentre en estado correcto.
-- No existan errores conocidos que impidan cumplir la historia.
+- No existan errores conocidos que impidan utilizar la funcionalidad.
