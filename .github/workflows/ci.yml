@@ -15,9 +15,21 @@ jobs:
         uses: actions/checkout@v4
 
       # Verificación de secretos: obligatoria para todo el repositorio.
+      # Se permite únicamente el JWT público de Supabase en el archivo de configuración cliente.
       - name: Detectar secretos en el repositorio
         run: |
-          docker run --rm -v "$PWD":/src aquasec/trivy fs --scanners secret --exit-code 1 /src
+          cat > .trivyignore.yaml <<'EOF'
+          secrets:
+            - id: jwt-token
+              paths:
+                - app/lib/core/config/supabase_config.dart
+          EOF
+
+          docker run --rm -v "$PWD":/src aquasec/trivy fs \
+            --scanners secret \
+            --ignorefile /src/.trivyignore.yaml \
+            --exit-code 1 \
+            /src
 
       # Flutter: el proyecto móvil está dentro de app.
       - name: Configurar Flutter
