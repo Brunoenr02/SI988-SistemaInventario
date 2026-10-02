@@ -3,9 +3,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/medicamento_extraccion_ia.dart';
 import '../viewmodels/almacen_viewmodel.dart';
+import '../states/almacen_state.dart';
 import 'escaner_gtin_view.dart';
 
 /// Formulario para registrar un nuevo medicamento y dar entrada a su primer lote en Almacén.
@@ -28,10 +30,13 @@ class _RegistroMedicamentoViewState extends State<RegistroMedicamentoView> {
   final _gtinController = TextEditingController();
   final _nombreController = TextEditingController();
   final _principioActivoController = TextEditingController();
-  final _concentracionController = TextEditingController();
+  final _codArtController = TextEditingController();
+  final _precioKairosController = TextEditingController();
   final _registroSanitarioController = TextEditingController();
+  final _laboratorioController = TextEditingController();
+  final _laboratorioFocusNode = FocusNode();
 
-  String _formaFarmaceutica = 'Tableta';
+  String _presentacion = 'Tableta';
   bool _requiereCadenaFrio = false;
   final double _tempMin = 2.0;
   final double _tempMax = 8.0;
@@ -39,10 +44,20 @@ class _RegistroMedicamentoViewState extends State<RegistroMedicamentoView> {
 
   // Controladores de Lote
   final _loteController = TextEditingController();
-  final _distribuidorController = TextEditingController();
+  final _proveedorController = TextEditingController();
+  final _numBoletaController = TextEditingController();
+  final _precioCompraController = TextEditingController();
+  final _precioVentaController = TextEditingController();
+  String _justificacion = 'Compra';
   final _cantidadController = TextEditingController(text: '50');
   final _tempRecepcionController = TextEditingController(text: '4.0');
   DateTime _fechaVencimiento = DateTime.now().add(const Duration(days: 365));
+  late final TextEditingController _fechaVencimientoController;
+  final _dateMaskFormatter = MaskTextInputFormatter(
+    mask: '##/##/####',
+    filter: { "#": RegExp(r'[0-9]') },
+    type: MaskAutoCompletionType.lazy,
+  );
 
   final List<String> _formasDisponibles = [
     'Tableta',
@@ -58,20 +73,25 @@ class _RegistroMedicamentoViewState extends State<RegistroMedicamentoView> {
   @override
   void initState() {
     super.initState();
+    _fechaVencimientoController = TextEditingController(
+      text: '${_fechaVencimiento.day.toString().padLeft(2, '0')}/${_fechaVencimiento.month.toString().padLeft(2, '0')}/${_fechaVencimiento.year}',
+    );
+
     if (widget.datosIniciales != null) {
       final d = widget.datosIniciales!;
       _gtinController.text = d.gtin;
       _nombreController.text = d.nombreComercial ?? '';
       _principioActivoController.text = d.principioActivo ?? '';
-      _concentracionController.text = d.concentracion ?? '';
+      _codArtController.text = ''; // La IA no suele extraer codArt interno
       _registroSanitarioController.text = d.registroSanitario ?? '';
       _loteController.text = d.numeroLote ?? '';
       if (d.fechaVencimiento != null) {
         _fechaVencimiento = d.fechaVencimiento!;
+        _fechaVencimientoController.text = '${_fechaVencimiento.day.toString().padLeft(2, '0')}/${_fechaVencimiento.month.toString().padLeft(2, '0')}/${_fechaVencimiento.year}';
       }
-      if (d.formaFarmaceutica != null &&
-          _formasDisponibles.contains(d.formaFarmaceutica)) {
-        _formaFarmaceutica = d.formaFarmaceutica!;
+      if (d.presentacion != null &&
+          _formasDisponibles.contains(d.presentacion)) {
+        _presentacion = d.presentacion!;
       }
       _requiereCadenaFrio = d.requiereCadenaFrio;
       _fotoCajaPath = d.fotoCajaPath;
@@ -86,40 +106,23 @@ class _RegistroMedicamentoViewState extends State<RegistroMedicamentoView> {
     _gtinController.dispose();
     _nombreController.dispose();
     _principioActivoController.dispose();
-    _concentracionController.dispose();
+    _codArtController.dispose();
+    _precioKairosController.dispose();
     _registroSanitarioController.dispose();
+    _laboratorioController.dispose();
+    _laboratorioFocusNode.dispose();
     _loteController.dispose();
-    _distribuidorController.dispose();
+    _proveedorController.dispose();
+    _numBoletaController.dispose();
+    _precioCompraController.dispose();
+    _precioVentaController.dispose();
     _cantidadController.dispose();
     _tempRecepcionController.dispose();
+    _fechaVencimientoController.dispose();
     super.dispose();
   }
 
-  Future<void> _seleccionarFechaVencimiento() async {
-    final hoy = DateTime.now();
-    final seleccionada = await showDatePicker(
-      context: context,
-      initialDate: _fechaVencimiento,
-      firstDate: hoy,
-      lastDate: hoy.add(const Duration(days: 365 * 10)),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AppColors.almacenColor,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
 
-    if (seleccionada != null) {
-      setState(() {
-        _fechaVencimiento = seleccionada;
-      });
-    }
-  }
 
   Future<void> _abrirEscanerCamara() async {
     Navigator.of(context).push(
@@ -169,15 +172,21 @@ class _RegistroMedicamentoViewState extends State<RegistroMedicamentoView> {
       gtin: _gtinController.text.trim(),
       nombreComercial: _nombreController.text.trim(),
       principioActivo: _principioActivoController.text.trim(),
-      formaFarmaceutica: _formaFarmaceutica,
-      concentracion: _concentracionController.text.trim(),
+      presentacion: _presentacion,
+      laboratorio: _laboratorioController.text.trim().isNotEmpty ? _laboratorioController.text.trim() : null,
+      codArt: _codArtController.text.trim(),
+      precioKairos: double.tryParse(_precioKairosController.text.trim()),
       registroSanitario: _registroSanitarioController.text.trim(),
       requiereCadenaFrio: _requiereCadenaFrio,
       temperaturaMin: _tempMin,
       temperaturaMax: _tempMax,
       numeroLote: _loteController.text.trim(),
       fechaVencimiento: _fechaVencimiento,
-      distribuidor: _distribuidorController.text.trim(),
+      proveedor: _proveedorController.text.trim(),
+      precioCompra: double.tryParse(_precioCompraController.text.trim()),
+      precioVenta: double.tryParse(_precioVentaController.text.trim()),
+      numBoleta: _numBoletaController.text.trim(),
+      justificacion: _justificacion,
       temperaturaRecepcion: tempRecepcion,
       cantidadInicial: cantidad,
     );
@@ -210,7 +219,15 @@ class _RegistroMedicamentoViewState extends State<RegistroMedicamentoView> {
 
   @override
   Widget build(BuildContext context) {
-    final isSaving = context.watch<AlmacenViewModel>().isSaving;
+    final vm = context.watch<AlmacenViewModel>();
+    final isSaving = vm.isSaving;
+    
+    final laboratoriosSugeridos = (vm.state is AlmacenLoaded ? (vm.state as AlmacenLoaded).catalogo : [])
+        .map((m) => m.laboratorio)
+        .whereType<String>()
+        .where((l) => l.trim().isNotEmpty)
+        .toSet()
+        .toList();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -290,6 +307,17 @@ class _RegistroMedicamentoViewState extends State<RegistroMedicamentoView> {
                 ),
                 child: Column(
                   children: [
+                    // Código de Artículo Interno
+                    TextFormField(
+                      controller: _codArtController,
+                      decoration: const InputDecoration(
+                        labelText: 'Código Artículo Interno',
+                        hintText: 'Ej: ART-001',
+                        prefixIcon: Icon(Icons.tag_rounded),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
                     // Código GTIN / Barras
                     Row(
                       children: [
@@ -355,51 +383,31 @@ class _RegistroMedicamentoViewState extends State<RegistroMedicamentoView> {
                     ),
                     const SizedBox(height: 14),
 
-                    // Concentración y Forma Farmacéutica
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          flex: 4,
-                          child: TextFormField(
-                            controller: _concentracionController,
-                            decoration: const InputDecoration(
-                              labelText: 'Concentración *',
-                              hintText: 'Ej: 500 mg, 1 g / 10ml',
+
+
+                    // Forma Farmacéutica
+                    DropdownButtonFormField<String>(
+                      value: _presentacion,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Forma Farmacéutica',
+                      ),
+                      items: _formasDisponibles
+                          .map(
+                            (f) => DropdownMenuItem(
+                              value: f,
+                              child: Text(
+                                f,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                            validator: (v) => (v == null || v.trim().isEmpty)
-                                ? 'Requerido'
-                                : null,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          flex: 5,
-                          child: DropdownButtonFormField<String>(
-                            value: _formaFarmaceutica,
-                            isExpanded: true,
-                            decoration: const InputDecoration(
-                              labelText: 'Forma Farmacéutica',
-                            ),
-                            items: _formasDisponibles
-                                .map(
-                                  (f) => DropdownMenuItem(
-                                    value: f,
-                                    child: Text(
-                                      f,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged: (val) {
-                              if (val != null) {
-                                setState(() => _formaFarmaceutica = val);
-                              }
-                            },
-                          ),
-                        ),
-                      ],
+                          )
+                          .toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() => _presentacion = val);
+                        }
+                      },
                     ),
                     const SizedBox(height: 14),
 
@@ -411,6 +419,65 @@ class _RegistroMedicamentoViewState extends State<RegistroMedicamentoView> {
                         hintText: 'Ej: RS-EE-04812',
                         prefixIcon: Icon(Icons.verified_outlined),
                       ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Laboratorio
+                    RawAutocomplete<String>(
+                      textEditingController: _laboratorioController,
+                      focusNode: _laboratorioFocusNode,
+                      optionsBuilder: (TextEditingValue textEditingValue) {
+                        if (textEditingValue.text.isEmpty) {
+                          return laboratoriosSugeridos;
+                        }
+                        final lowercaseText = textEditingValue.text.toLowerCase();
+                        return laboratoriosSugeridos.where((String option) {
+                          return option.toLowerCase().contains(lowercaseText);
+                        });
+                      },
+                      onSelected: (String selection) {
+                        _laboratorioController.text = selection;
+                      },
+                      fieldViewBuilder: (BuildContext context, TextEditingController textEditingController, FocusNode focusNode, VoidCallback onFieldSubmitted) {
+                        return TextFormField(
+                          controller: textEditingController,
+                          focusNode: focusNode,
+                          onFieldSubmitted: (String value) => onFieldSubmitted(),
+                          decoration: const InputDecoration(
+                            labelText: 'Laboratorio / Fabricante Principal',
+                            hintText: 'Ej: Bayer, Pfizer, Medifarma S.A.',
+                            prefixIcon: Icon(Icons.science_outlined),
+                          ),
+                        );
+                      },
+                      optionsViewBuilder: (BuildContext context, AutocompleteOnSelected<String> onSelected, Iterable<String> options) {
+                        return Align(
+                          alignment: Alignment.topLeft,
+                          child: Material(
+                            elevation: 8.0,
+                            borderRadius: BorderRadius.circular(12),
+                            clipBehavior: Clip.antiAlias,
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxHeight: 200, maxWidth: 300),
+                              child: ListView.builder(
+                                padding: EdgeInsets.zero,
+                                shrinkWrap: true,
+                                itemCount: options.length,
+                                itemBuilder: (BuildContext context, int index) {
+                                  final String option = options.elementAt(index);
+                                  return InkWell(
+                                    onTap: () => onSelected(option),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                                      child: Text(option, style: const TextStyle(fontSize: 13)),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                     ),
                     const SizedBox(height: 14),
 
@@ -571,10 +638,59 @@ class _RegistroMedicamentoViewState extends State<RegistroMedicamentoView> {
 
               const SizedBox(height: 24),
 
-              // 2. SECCIÓN: DATOS DEL LOTE Y STOCK INICIAL
+              // 2. SECCIÓN: PRECIOS DE COMERCIALIZACIÓN
+              _buildSectionHeader(
+                icon: Icons.monetization_on_rounded,
+                title: '2. Precios de Comercialización',
+                subtitle: 'Precios de venta al público y referenciales',
+              ),
+              const SizedBox(height: 14),
+
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.surfaceVariant),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _precioVentaController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(
+                          labelText: 'Precio Venta *',
+                          hintText: 'Ej: 20.00',
+                          prefixIcon: Icon(Icons.sell_outlined),
+                        ),
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Requerido'
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _precioKairosController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(
+                          labelText: 'Precio Ref. (Kairos)',
+                          hintText: 'Ej: 25.50',
+                          prefixIcon: Icon(Icons.monetization_on_outlined),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // 3. SECCIÓN: DATOS DEL LOTE Y STOCK INICIAL
               _buildSectionHeader(
                 icon: Icons.inventory_2_rounded,
-                title: '2. Recepción Física de Lote y Stock',
+                title: '3. Recepción Física de Lote y Stock',
                 subtitle: 'Ingreso directo al inventario de Almacén General',
               ),
               const SizedBox(height: 14),
@@ -588,7 +704,7 @@ class _RegistroMedicamentoViewState extends State<RegistroMedicamentoView> {
                 ),
                 child: Column(
                   children: [
-                    // Número de Lote y Distribuidor
+                    // Número de Lote y Proveedor
                     Row(
                       children: [
                         Expanded(
@@ -608,9 +724,9 @@ class _RegistroMedicamentoViewState extends State<RegistroMedicamentoView> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: TextFormField(
-                            controller: _distribuidorController,
+                            controller: _proveedorController,
                             decoration: const InputDecoration(
-                              labelText: 'Distribuidor / Proveedor',
+                              labelText: 'Proveedor',
                               hintText: 'Ej: Medifarma',
                             ),
                           ),
@@ -619,55 +735,73 @@ class _RegistroMedicamentoViewState extends State<RegistroMedicamentoView> {
                     ),
                     const SizedBox(height: 14),
 
-                    // Fecha de vencimiento (con selector y semáforo visual)
-                    InkWell(
-                      onTap: _seleccionarFechaVencimiento,
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceVariant.withOpacity(0.5),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.surfaceVariant),
+                    // Boleta y Justificación
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _numBoletaController,
+                            textCapitalization: TextCapitalization.characters,
+                            decoration: const InputDecoration(
+                              labelText: 'Nº Boleta / Factura',
+                              hintText: 'Ej: F001-123',
+                              prefixIcon: Icon(Icons.receipt_long_rounded),
+                            ),
+                          ),
                         ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.calendar_month_rounded,
-                              color: AppColors.almacenColor,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            value: _justificacion,
+                            isExpanded: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Justificación',
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Fecha de Caducidad (FEFO) *',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: AppColors.textSecondary,
-                                    ),
-                                  ),
-                                  Text(
-                                    '${_fechaVencimiento.day.toString().padLeft(2, '0')}/${_fechaVencimiento.month.toString().padLeft(2, '0')}/${_fechaVencimiento.year}',
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.textPrimary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const Chip(
-                              label: Text('Cambiar'),
-                              padding: EdgeInsets.zero,
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          ],
+                            items: const [
+                              DropdownMenuItem(value: 'Compra', child: Text('Compra')),
+                              DropdownMenuItem(value: 'Donacion', child: Text('Donación')),
+                            ],
+                            onChanged: (val) {
+                              if (val != null) setState(() => _justificacion = val);
+                            },
+                          ),
                         ),
-                      ),
+                      ],
                     ),
+                    const SizedBox(height: 14),
+
+                    // Precio de Compra
+                    TextFormField(
+                      controller: _precioCompraController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(
+                        labelText: 'Precio Compra *',
+                        hintText: 'Ej: 15.00',
+                        prefixIcon: Icon(Icons.shopping_cart_outlined),
+                      ),
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Requerido'
+                          : null,
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Fecha de vencimiento con máscara
+                    TextFormField(
+                      controller: _fechaVencimientoController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [_dateMaskFormatter],
+                      decoration: const InputDecoration(
+                        labelText: 'Fecha de Caducidad (FEFO) *',
+                        hintText: 'DD/MM/AAAA',
+                        prefixIcon: Icon(Icons.calendar_month_rounded),
+                      ),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return 'Requerido';
+                        if (v.length < 10) return 'Formato incompleto';
+                        return null;
+                      },
+                    ),
+
                     const SizedBox(height: 14),
 
                     // Cantidad a ingresar y temperatura de recepción

@@ -5,8 +5,8 @@ class MedicamentoExtraccionIA {
   final String gtin;
   final String? nombreComercial;
   final String? principioActivo;
-  final String? formaFarmaceutica;
-  final String? concentracion;
+  final String? presentacion;
+  final String? codArt;
   final String? registroSanitario;
   final String? numeroLote;
   final DateTime? fechaVencimiento;
@@ -19,8 +19,8 @@ class MedicamentoExtraccionIA {
     required this.gtin,
     this.nombreComercial,
     this.principioActivo,
-    this.formaFarmaceutica,
-    this.concentracion,
+    this.presentacion,
+    this.codArt,
     this.registroSanitario,
     this.numeroLote,
     this.fechaVencimiento,
@@ -34,8 +34,8 @@ class MedicamentoExtraccionIA {
     String? gtin,
     String? nombreComercial,
     String? principioActivo,
-    String? formaFarmaceutica,
-    String? concentracion,
+    String? presentacion,
+    String? codArt,
     String? registroSanitario,
     String? numeroLote,
     DateTime? fechaVencimiento,
@@ -48,8 +48,8 @@ class MedicamentoExtraccionIA {
       gtin: gtin ?? this.gtin,
       nombreComercial: nombreComercial ?? this.nombreComercial,
       principioActivo: principioActivo ?? this.principioActivo,
-      formaFarmaceutica: formaFarmaceutica ?? this.formaFarmaceutica,
-      concentracion: concentracion ?? this.concentracion,
+      presentacion: presentacion ?? this.presentacion,
+      codArt: codArt ?? this.codArt,
       registroSanitario: registroSanitario ?? this.registroSanitario,
       numeroLote: numeroLote ?? this.numeroLote,
       fechaVencimiento: fechaVencimiento ?? this.fechaVencimiento,

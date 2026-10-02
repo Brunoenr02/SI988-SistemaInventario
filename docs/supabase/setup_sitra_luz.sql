@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS public.medicamentos (
     nombre_comercial TEXT NOT NULL,
     principio_activo TEXT NOT NULL,
     forma_farmaceutica TEXT NOT NULL, -- 'Cápsula', 'Ampolla', 'Frasco Jarabe', 'Comprimido'
-    concentracion TEXT, -- Ej: '500 mg', '1 g / 10 ml'
+    cod_art TEXT, -- Código de artículo interno
     registro_sanitario TEXT, -- Ej: 'RS-12345'
     unidad_presentacion TEXT NOT NULL DEFAULT 'unidades',
     cantidad_por_presentacion INT NOT NULL DEFAULT 1,
@@ -68,6 +68,7 @@ CREATE TABLE IF NOT EXISTS public.medicamentos (
     temperatura_min NUMERIC(4, 1) DEFAULT 2.0,
     temperatura_max NUMERIC(4, 1) DEFAULT 8.0,
     imagen_url TEXT,
+    precio_kairos NUMERIC(10, 2), -- Precio referencial
     activo BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
@@ -82,7 +83,11 @@ CREATE TABLE IF NOT EXISTS public.lotes (
     numero_lote TEXT NOT NULL,
     fecha_fabricacion DATE,
     fecha_vencimiento DATE NOT NULL,
-    distribuidor TEXT,
+    proveedor TEXT,
+    precio_compra NUMERIC(10, 2),
+    precio_venta NUMERIC(10, 2),
+    num_boleta TEXT,
+    justificacion TEXT CHECK (justificacion IN ('Compra', 'Donacion')),
     temperatura_recepcion NUMERIC(4, 1),
     observaciones TEXT,
     activo BOOLEAN NOT NULL DEFAULT true,
@@ -345,13 +350,14 @@ INSERT INTO public.doctores (nombre, colegiatura, especialidad) VALUES
 ON CONFLICT DO NOTHING;
 
 -- Medicamentos maestros
-INSERT INTO public.medicamentos (gtin, nombre_comercial, principio_activo, forma_farmaceutica, concentracion, registro_sanitario, unidad_presentacion, cantidad_por_presentacion, requiere_cadena_frio) VALUES
-('7750215001234', 'Amoxicilina 500mg', 'Amoxicilina', 'Cápsula', '500 mg', 'RS-EE-04812', 'cápsulas', 100, false),
-('7750215005678', 'Paracetamol 1g Inyectable', 'Paracetamol', 'Ampolla', '1 g / 100 ml', 'RS-EN-01294', 'ampollas', 1, false),
-('7750215009012', 'Fentanilo 0.5mg/10ml', 'Citrato de Fentanilo', 'Ampolla', '0.05 mg / ml', 'RS-EE-09312', 'ampollas', 5, false),
-('7750215003456', 'Insulina NPH Humana 100 UI/ml', 'Insulina Humana', 'Frasco', '100 UI / ml', 'RS-BE-01582', 'frascos', 1, true),
-('7750215007890', 'Adrenalina 1mg/ml', 'Epinefrina', 'Ampolla', '1 mg / 1 ml', 'RS-EN-03481', 'ampollas', 10, false),
-('7750215006543', 'Ceftriaxona 1g', 'Ceftriaxona Sódica', 'Frasco Ampolla', '1 g', 'RS-EE-07821', 'viales', 1, false)
+-- Medicamentos maestros
+INSERT INTO public.medicamentos (gtin, cod_art, nombre_comercial, principio_activo, forma_farmaceutica, registro_sanitario, unidad_presentacion, cantidad_por_presentacion, requiere_cadena_frio, precio_kairos) VALUES
+('7750215001234', 'ART-001', 'Amoxicilina 500mg', 'Amoxicilina', 'Cápsula', 'RS-EE-04812', 'cápsulas', 100, false, 25.50),
+('7750215005678', 'ART-002', 'Paracetamol 1g Inyectable', 'Paracetamol', 'Ampolla', 'RS-EN-01294', 'ampollas', 1, false, 5.00),
+('7750215009012', 'ART-003', 'Fentanilo 0.5mg/10ml', 'Citrato de Fentanilo', 'Ampolla', 'RS-EE-09312', 'ampollas', 5, false, 80.00),
+('7750215003456', 'ART-004', 'Insulina NPH Humana 100 UI/ml', 'Insulina Humana', 'Frasco', 'RS-BE-01582', 'frascos', 1, true, 45.00),
+('7750215007890', 'ART-005', 'Adrenalina 1mg/ml', 'Epinefrina', 'Ampolla', 'RS-EN-03481', 'ampollas', 10, false, 15.00),
+('7750215006543', 'ART-006', 'Ceftriaxona 1g', 'Ceftriaxona Sódica', 'Frasco Ampolla', 'RS-EE-07821', 'viales', 1, false, 12.00)
 ON CONFLICT (gtin) DO NOTHING;
 
 -- Lotes iniciales para demostración (con fechas de vencimiento para alertas FEFO)
@@ -373,8 +379,8 @@ BEGIN
     SELECT id INTO med_insu FROM public.medicamentos WHERE gtin = '7750215003456' LIMIT 1;
 
     IF med_amox IS NOT NULL THEN
-        INSERT INTO public.lotes (medicamento_id, numero_lote, fecha_vencimiento, distribuidor)
-        VALUES (med_amox, 'L2026-A15', CURRENT_DATE + INTERVAL '180 days', 'Distribuidora Médica Sur')
+        INSERT INTO public.lotes (medicamento_id, numero_lote, fecha_vencimiento, proveedor, precio_compra, precio_venta, num_boleta, justificacion)
+        VALUES (med_amox, 'L2026-A15', CURRENT_DATE + INTERVAL '180 days', 'Distribuidora Médica Sur', 18.00, 22.00, 'BOL-001', 'Compra')
         ON CONFLICT (medicamento_id, numero_lote) DO NOTHING
         RETURNING id INTO lote_amox_id;
 
@@ -387,8 +393,8 @@ BEGIN
 
     IF med_parac IS NOT NULL THEN
         -- Lote próximo a vencer (alerta preventiva en semáforo)
-        INSERT INTO public.lotes (medicamento_id, numero_lote, fecha_vencimiento, distribuidor)
-        VALUES (med_parac, 'L2025-P02', CURRENT_DATE + INTERVAL '20 days', 'Laboratorios Roche / Perú')
+        INSERT INTO public.lotes (medicamento_id, numero_lote, fecha_vencimiento, proveedor, justificacion)
+        VALUES (med_parac, 'L2025-P02', CURRENT_DATE + INTERVAL '20 days', 'Laboratorios Roche / Perú', 'Donacion')
         ON CONFLICT (medicamento_id, numero_lote) DO NOTHING
         RETURNING id INTO lote_parac_id;
 
@@ -400,8 +406,8 @@ BEGIN
     END IF;
 
     IF med_insu IS NOT NULL THEN
-        INSERT INTO public.lotes (medicamento_id, numero_lote, fecha_vencimiento, distribuidor)
-        VALUES (med_insu, 'L2027-INS8', CURRENT_DATE + INTERVAL '300 days', 'Novo Nordisk')
+        INSERT INTO public.lotes (medicamento_id, numero_lote, fecha_vencimiento, proveedor, precio_compra, precio_venta, num_boleta, justificacion)
+        VALUES (med_insu, 'L2027-INS8', CURRENT_DATE + INTERVAL '300 days', 'Novo Nordisk', 35.00, 42.00, 'FAC-002', 'Compra')
         ON CONFLICT (medicamento_id, numero_lote) DO NOTHING
         RETURNING id INTO lote_insu_id;
 

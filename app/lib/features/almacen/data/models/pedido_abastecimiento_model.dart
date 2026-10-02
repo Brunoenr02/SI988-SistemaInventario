@@ -6,7 +6,7 @@ class PedidoAbastecimientoItemModel extends PedidoAbastecimientoItemEntity {
     required super.pedidoId,
     required super.medicamentoId,
     required super.nombreMedicamento,
-    super.concentracion,
+    super.formaFarmaceutica,
     required super.cantidadSolicitada,
     super.cantidadDespachada,
   });
@@ -19,7 +19,7 @@ class PedidoAbastecimientoItemModel extends PedidoAbastecimientoItemEntity {
       pedidoId: map['pedido_id']?.toString() ?? '',
       medicamentoId: map['medicamento_id']?.toString() ?? '',
       nombreMedicamento: med?['nombre_comercial']?.toString() ?? 'Medicamento Solicitado',
-      concentracion: med?['concentracion']?.toString() ?? '',
+      formaFarmaceutica: med?['forma_farmaceutica']?.toString() ?? '',
       cantidadSolicitada: (map['cantidad_solicitada'] as num?)?.toInt() ?? 0,
       cantidadDespachada: (map['cantidad_despachada'] as num?)?.toInt() ?? 0,
     );

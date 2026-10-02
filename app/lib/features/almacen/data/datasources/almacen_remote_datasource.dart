@@ -111,7 +111,12 @@ class AlmacenRemoteDataSource {
     required String numeroLote,
     required DateTime fechaVencimiento,
     DateTime? fechaFabricacion,
-    String? distribuidor,
+    String? laboratorio,
+    String? proveedor,
+    double? precioCompra,
+    double? precioVenta,
+    String? numBoleta,
+    String? justificacion,
     double? temperaturaRecepcion,
     String? observaciones,
     required int cantidadInicial,
@@ -124,8 +129,14 @@ class AlmacenRemoteDataSource {
         if (fechaFabricacion != null)
           'fecha_fabricacion': fechaFabricacion.toIso8601String().split('T').first,
         'fecha_vencimiento': fechaVencimiento.toIso8601String().split('T').first,
-        if (distribuidor != null && distribuidor.isNotEmpty)
-          'distribuidor': distribuidor.trim(),
+        if (laboratorio != null && laboratorio.isNotEmpty)
+          'laboratorio': laboratorio.trim(),
+        if (proveedor != null && proveedor.isNotEmpty)
+          'proveedor': proveedor.trim(),
+        if (precioCompra != null) 'precio_compra': precioCompra,
+        if (precioVenta != null) 'precio_venta': precioVenta,
+        if (numBoleta != null && numBoleta.isNotEmpty) 'num_boleta': numBoleta.trim(),
+        if (justificacion != null && justificacion.isNotEmpty) 'justificacion': justificacion.trim(),
         if (temperaturaRecepcion != null)
           'temperatura_recepcion': temperaturaRecepcion,
         if (observaciones != null && observaciones.isNotEmpty)
@@ -157,7 +168,7 @@ class AlmacenRemoteDataSource {
         'usuario_id': currentUserId,
         'area_destino': 'ALMACEN',
         'cantidad': cantidadInicial,
-        'descripcion': 'Ingreso de mercadería: Lote ${loteModel.numeroLote} con $cantidadInicial unidades. Distribuidor: ${distribuidor ?? "Directo"}',
+        'descripcion': 'Ingreso de mercadería: Lote ${loteModel.numeroLote} con $cantidadInicial unidades. Proveedor: ${proveedor ?? "Directo"}',
       });
 
       debugPrint('✅ Ingreso de lote registrado exitosamente: ${loteModel.numeroLote}');
@@ -262,7 +273,7 @@ class AlmacenRemoteDataSource {
       final response = await _supabase
           .from('pedidos_abastecimiento')
           .select(
-            '*, solicitante:profiles(nombre, cargo), items:pedidos_abastecimiento_items(*, medicamento:medicamentos(*))',
+            '*, solicitante:profiles(nombre, rol), items:pedidos_abastecimiento_items(*, medicamento:medicamentos(*))',
           )
           .order('fecha_solicitud', ascending: false);
 
@@ -323,8 +334,8 @@ class AlmacenRemoteDataSource {
         gtin: '7750215001234',
         nombreComercial: 'Amoxicilina 500mg',
         principioActivo: 'Amoxicilina',
-        formaFarmaceutica: 'Cápsula',
-        concentracion: '500 mg',
+        presentacion: 'Cápsula',
+        codArt: 'M-001',
         registroSanitario: 'RS-EE-04812',
         unidadPresentacion: 'cápsulas',
         cantidadPorPresentacion: 100,
@@ -335,8 +346,8 @@ class AlmacenRemoteDataSource {
         gtin: '7750215005678',
         nombreComercial: 'Paracetamol 1g Inyectable',
         principioActivo: 'Paracetamol',
-        formaFarmaceutica: 'Ampolla',
-        concentracion: '1 g / 100 ml',
+        presentacion: 'Ampolla',
+        codArt: 'M-002',
         registroSanitario: 'RS-EN-01294',
         unidadPresentacion: 'ampollas',
         cantidadPorPresentacion: 1,
@@ -347,8 +358,8 @@ class AlmacenRemoteDataSource {
         gtin: '7750215003456',
         nombreComercial: 'Insulina NPH Humana 100 UI/ml',
         principioActivo: 'Insulina Humana',
-        formaFarmaceutica: 'Frasco',
-        concentracion: '100 UI / ml',
+        presentacion: 'Frasco',
+        codArt: 'M-003',
         registroSanitario: 'RS-BE-01582',
         unidadPresentacion: 'frascos',
         cantidadPorPresentacion: 1,
@@ -361,8 +372,8 @@ class AlmacenRemoteDataSource {
         gtin: '7750215009012',
         nombreComercial: 'Fentanilo 0.5mg/10ml',
         principioActivo: 'Citrato de Fentanilo',
-        formaFarmaceutica: 'Ampolla',
-        concentracion: '0.05 mg / ml',
+        presentacion: 'Ampolla',
+        codArt: 'M-004',
         registroSanitario: 'RS-EE-09312',
         unidadPresentacion: 'ampollas',
         cantidadPorPresentacion: 5,
@@ -388,7 +399,7 @@ class AlmacenRemoteDataSource {
           medicamentoId: meds[0].id,
           numeroLote: 'L2026-A15',
           fechaVencimiento: hoy.add(const Duration(days: 180)),
-          distribuidor: 'Distribuidora Médica Sur',
+          proveedor: 'Distribuidora Médica Sur',
           activo: true,
         ),
       ),
@@ -404,7 +415,7 @@ class AlmacenRemoteDataSource {
           medicamentoId: meds[1].id,
           numeroLote: 'L2025-P02',
           fechaVencimiento: hoy.add(const Duration(days: 20)), // Crítico < 30 días
-          distribuidor: 'Laboratorios Roche / Perú',
+          proveedor: 'Laboratorios Roche / Perú',
           activo: true,
         ),
       ),
@@ -420,7 +431,7 @@ class AlmacenRemoteDataSource {
           medicamentoId: meds[2].id,
           numeroLote: 'L2027-INS8',
           fechaVencimiento: hoy.add(const Duration(days: 300)),
-          distribuidor: 'Novo Nordisk',
+          proveedor: 'Novo Nordisk',
           temperaturaRecepcion: 4.1,
           activo: true,
         ),
@@ -448,7 +459,7 @@ class AlmacenRemoteDataSource {
             pedidoId: 'mock-ped-001',
             medicamentoId: meds[0].id,
             nombreMedicamento: meds[0].nombreComercial,
-            concentracion: meds[0].concentracion,
+            formaFarmaceutica: meds[0].presentacion,
             cantidadSolicitada: 30,
           ),
           PedidoAbastecimientoItemModel(
@@ -456,7 +467,7 @@ class AlmacenRemoteDataSource {
             pedidoId: 'mock-ped-001',
             medicamentoId: meds[2].id,
             nombreMedicamento: meds[2].nombreComercial,
-            concentracion: meds[2].concentracion,
+            formaFarmaceutica: meds[2].presentacion,
             cantidadSolicitada: 10,
           ),
         ],
@@ -477,7 +488,7 @@ class AlmacenRemoteDataSource {
             pedidoId: 'mock-ped-002',
             medicamentoId: meds[1].id,
             nombreMedicamento: meds[1].nombreComercial,
-            concentracion: meds[1].concentracion,
+            formaFarmaceutica: meds[1].presentacion,
             cantidadSolicitada: 20,
             cantidadDespachada: 20,
           ),

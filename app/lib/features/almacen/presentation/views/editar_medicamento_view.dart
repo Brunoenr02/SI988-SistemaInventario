@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/medicamento_entity.dart';
 import '../viewmodels/almacen_viewmodel.dart';
+import '../states/almacen_state.dart';
 
 /// Pantalla para la edición técnica de un medicamento registrado en el catálogo (RF-016).
 /// Permite actualizar nombre, principio activo, forma, concentración, GTIN, registro sanitario y cadena de frío.
@@ -21,14 +22,17 @@ class _EditarMedicamentoViewState extends State<EditarMedicamentoView> {
   late final TextEditingController _gtinController;
   late final TextEditingController _nombreController;
   late final TextEditingController _principioActivoController;
-  late final TextEditingController _concentracionController;
+  late final TextEditingController _laboratorioController;
+  late final FocusNode _laboratorioFocusNode = FocusNode();
+  late final TextEditingController _codArtController;
+  late final TextEditingController _precioKairosController;
   late final TextEditingController _registroSanitarioController;
   late final TextEditingController _unidadPresentacionController;
   late final TextEditingController _cantidadPorPresentacionController;
   late final TextEditingController _tempMinController;
   late final TextEditingController _tempMaxController;
 
-  late String _formaFarmaceutica;
+  late String _presentacion;
   late bool _requiereCadenaFrio;
   late bool _activo;
 
@@ -53,17 +57,19 @@ class _EditarMedicamentoViewState extends State<EditarMedicamentoView> {
     _gtinController = TextEditingController(text: med.gtin);
     _nombreController = TextEditingController(text: med.nombreComercial);
     _principioActivoController = TextEditingController(text: med.principioActivo);
-    _concentracionController = TextEditingController(text: med.concentracion);
+    _laboratorioController = TextEditingController(text: med.laboratorio ?? '');
+    _codArtController = TextEditingController(text: med.codArt ?? '');
+    _precioKairosController = TextEditingController(text: med.precioKairos?.toString() ?? '');
     _registroSanitarioController = TextEditingController(text: med.registroSanitario ?? '');
     _unidadPresentacionController = TextEditingController(text: med.unidadPresentacion);
     _cantidadPorPresentacionController = TextEditingController(text: med.cantidadPorPresentacion.toString());
     _tempMinController = TextEditingController(text: med.temperaturaMin.toString());
     _tempMaxController = TextEditingController(text: med.temperaturaMax.toString());
 
-    if (_formasDisponibles.contains(med.formaFarmaceutica)) {
-      _formaFarmaceutica = med.formaFarmaceutica;
+    if (_formasDisponibles.contains(med.presentacion)) {
+      _presentacion = med.presentacion;
     } else {
-      _formaFarmaceutica = _formasDisponibles.first;
+      _presentacion = _formasDisponibles.first;
     }
 
     _requiereCadenaFrio = med.requiereCadenaFrio;
@@ -75,7 +81,10 @@ class _EditarMedicamentoViewState extends State<EditarMedicamentoView> {
     _gtinController.dispose();
     _nombreController.dispose();
     _principioActivoController.dispose();
-    _concentracionController.dispose();
+    _laboratorioController.dispose();
+    _laboratorioFocusNode.dispose();
+    _codArtController.dispose();
+    _precioKairosController.dispose();
     _registroSanitarioController.dispose();
     _unidadPresentacionController.dispose();
     _cantidadPorPresentacionController.dispose();
@@ -102,8 +111,10 @@ class _EditarMedicamentoViewState extends State<EditarMedicamentoView> {
       gtin: _gtinController.text.trim(),
       nombreComercial: _nombreController.text.trim(),
       principioActivo: _principioActivoController.text.trim(),
-      formaFarmaceutica: _formaFarmaceutica,
-      concentracion: _concentracionController.text.trim(),
+      laboratorio: _laboratorioController.text.trim().isNotEmpty ? _laboratorioController.text.trim() : null,
+      presentacion: _presentacion,
+      codArt: _codArtController.text.trim().isNotEmpty ? _codArtController.text.trim() : null,
+      precioKairos: double.tryParse(_precioKairosController.text.trim()),
       registroSanitario: _registroSanitarioController.text.trim().isNotEmpty
           ? _registroSanitarioController.text.trim()
           : null,
@@ -141,6 +152,13 @@ class _EditarMedicamentoViewState extends State<EditarMedicamentoView> {
   Widget build(BuildContext context) {
     final vm = context.watch<AlmacenViewModel>();
     final isSaving = vm.isSaving;
+
+    final laboratoriosSugeridos = (vm.state is AlmacenLoaded ? (vm.state as AlmacenLoaded).catalogo : [])
+        .map((m) => m.laboratorio)
+        .whereType<String>()
+        .where((l) => l.trim().isNotEmpty)
+        .toSet()
+        .toList();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -310,47 +328,25 @@ class _EditarMedicamentoViewState extends State<EditarMedicamentoView> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
-                          flex: 5,
                           child: TextFormField(
-                            controller: _concentracionController,
+                            controller: _codArtController,
                             decoration: const InputDecoration(
-                              labelText: 'Concentración *',
-                              hintText: 'Ej: 1 g',
+                              labelText: 'Código Interno',
+                              hintText: 'Ej: ART-001',
                               contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                             ),
-                            validator: (v) {
-                              if (v == null || v.trim().isEmpty) {
-                                return 'Requerido';
-                              }
-                              return null;
-                            },
                           ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
-                          flex: 6,
-                          child: DropdownButtonFormField<String>(
-                            value: _formaFarmaceutica,
-                            isExpanded: true,
+                          child: TextFormField(
+                            controller: _precioKairosController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
                             decoration: const InputDecoration(
-                              labelText: 'Forma Farmacéutica',
+                              labelText: 'Precio Ref. (Kairos)',
+                              hintText: 'Ej: 25.50',
                               contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                             ),
-                            items: _formasDisponibles.map((forma) {
-                              return DropdownMenuItem(
-                                value: forma,
-                                child: Text(
-                                  forma,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontSize: 13),
-                                ),
-                              );
-                            }).toList(),
-                            onChanged: (val) {
-                              if (val != null) {
-                                setState(() => _formaFarmaceutica = val);
-                              }
-                            },
                           ),
                         ),
                       ],
@@ -408,16 +404,83 @@ class _EditarMedicamentoViewState extends State<EditarMedicamentoView> {
                     ),
                     const SizedBox(height: 14),
 
+                    // Laboratorio
+                    RawAutocomplete<String>(
+                      textEditingController: _laboratorioController,
+                      focusNode: _laboratorioFocusNode,
+                      optionsBuilder: (TextEditingValue textEditingValue) {
+                        if (textEditingValue.text.isEmpty) return laboratoriosSugeridos;
+                        final lowercaseText = textEditingValue.text.toLowerCase();
+                        return laboratoriosSugeridos.where((String option) {
+                          return option.toLowerCase().contains(lowercaseText);
+                        });
+                      },
+                      onSelected: (String selection) {
+                        _laboratorioController.text = selection;
+                      },
+                      fieldViewBuilder: (BuildContext context, TextEditingController textEditingController, FocusNode focusNode, VoidCallback onFieldSubmitted) {
+                        return TextFormField(
+                          controller: textEditingController,
+                          focusNode: focusNode,
+                          onFieldSubmitted: (String value) => onFieldSubmitted(),
+                          decoration: const InputDecoration(
+                            labelText: 'Laboratorio / Fabricante Principal',
+                            hintText: 'Ej: Bayer, Medifarma',
+                            prefixIcon: Icon(Icons.science_outlined),
+                          ),
+                        );
+                      },
+                      optionsViewBuilder: (BuildContext context, AutocompleteOnSelected<String> onSelected, Iterable<String> options) {
+                        return Align(
+                          alignment: Alignment.topLeft,
+                          child: Material(
+                            elevation: 8.0,
+                            borderRadius: BorderRadius.circular(12),
+                            clipBehavior: Clip.antiAlias,
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxHeight: 200, maxWidth: 300),
+                              child: ListView.builder(
+                                padding: EdgeInsets.zero,
+                                shrinkWrap: true,
+                                itemCount: options.length,
+                                itemBuilder: (BuildContext context, int index) {
+                                  final String option = options.elementAt(index);
+                                  return InkWell(
+                                    onTap: () => onSelected(option),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                                      child: Text(option, style: const TextStyle(fontSize: 13)),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 14),
+
                     Row(
                       children: [
                         Expanded(
-                          child: TextFormField(
-                            controller: _unidadPresentacionController,
+                          child: DropdownButtonFormField<String>(
+                            value: _presentacion,
+                            isExpanded: true,
                             decoration: const InputDecoration(
-                              labelText: 'Presentación',
-                              prefixIcon: Icon(Icons.inventory_2_outlined),
-                              hintText: 'Ej: Frasco, Caja, Ampolla',
+                              labelText: 'Presentación *',
+                              prefixIcon: Icon(Icons.medication_liquid_rounded),
                             ),
+                            items: _formasDisponibles.map((forma) {
+                              return DropdownMenuItem(
+                                value: forma,
+                                child: Text(forma, overflow: TextOverflow.ellipsis),
+                              );
+                            }).toList(),
+                            onChanged: (val) {
+                              if (val != null) setState(() => _presentacion = val);
+                            },
+                            validator: (v) => v == null ? 'Requerido' : null,
                           ),
                         ),
                         const SizedBox(width: 12),

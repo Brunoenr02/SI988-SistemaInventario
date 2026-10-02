@@ -7,7 +7,7 @@ import '../../../almacen/domain/entities/stock_almacen_entity.dart';
 import '../../../almacen/presentation/states/almacen_state.dart';
 import '../../../almacen/presentation/viewmodels/almacen_viewmodel.dart';
 import '../../../almacen/domain/entities/medicamento_entity.dart';
-import '../../../almacen/presentation/views/dialogs/ingreso_lote_dialog.dart';
+import '../../../almacen/presentation/views/ingreso_lote_view.dart';
 import '../../../almacen/presentation/views/dialogs/transferir_a_farmacia_dialog.dart';
 import '../../../almacen/presentation/views/editar_medicamento_view.dart';
 import '../../../almacen/presentation/views/escaner_gtin_view.dart';
@@ -135,9 +135,10 @@ class _AlmacenDashboardViewState extends State<AlmacenDashboardView> {
   }
 
   void _abrirIngresoLote(AlmacenLoaded loaded) {
-    showDialog(
-      context: context,
-      builder: (_) => IngresoLoteDialog(catalogo: loaded.catalogo),
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => IngresoLoteView(catalogo: loaded.catalogo),
+      ),
     );
   }
 
@@ -275,33 +276,12 @@ class _AlmacenDashboardViewState extends State<AlmacenDashboardView> {
                               Icon(Icons.inventory_2_rounded, color: Colors.white, size: 16),
                               SizedBox(width: 6),
                               Text(
-                                'LOGÍSTICA CLÍNICA',
+                                'ALMACÉN DE LA CLÍNICA',
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
                                   letterSpacing: 0.5,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Row(
-                            children: [
-                              Icon(Icons.ac_unit_rounded, color: Colors.cyanAccent, size: 14),
-                              SizedBox(width: 4),
-                              Text(
-                                'Frío: 3.8 °C',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
                                 ),
                               ),
                             ],
@@ -573,7 +553,9 @@ class _AlmacenDashboardViewState extends State<AlmacenDashboardView> {
                   ),
                   if (state is AlmacenLoaded)
                     Text(
-                      '${itemsFiltrados.length} de ${state.inventario.length} lotes',
+                      _searchController.text.trim().isEmpty
+                          ? 'Mostrando ${itemsFiltrados.length > 5 ? 5 : itemsFiltrados.length} de ${state.inventario.length} lotes'
+                          : '${itemsFiltrados.length} resultados encontrados',
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -733,7 +715,9 @@ class _AlmacenDashboardViewState extends State<AlmacenDashboardView> {
                   ListView.separated(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    itemCount: itemsFiltrados.length,
+                    itemCount: _searchController.text.trim().isEmpty 
+                        ? (itemsFiltrados.length > 5 ? 5 : itemsFiltrados.length) 
+                        : itemsFiltrados.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
                     itemBuilder: (context, index) {
                       final item = itemsFiltrados[index];
@@ -802,7 +786,11 @@ class _AlmacenDashboardViewState extends State<AlmacenDashboardView> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${med.principioActivo} • ${med.concentracion}',
+                      (lote.laboratorio != null && lote.laboratorio!.isNotEmpty)
+                          ? lote.laboratorio!
+                          : (med.laboratorio != null && med.laboratorio!.isNotEmpty)
+                              ? med.laboratorio!
+                              : 'Laboratorio no especificado',
                       style: const TextStyle(
                         fontSize: 12,
                         color: AppColors.textSecondary,
@@ -898,23 +886,6 @@ class _AlmacenDashboardViewState extends State<AlmacenDashboardView> {
                 icon: const Icon(Icons.edit_outlined, size: 15),
                 label: const Text(
                   'Editar',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                ),
-              ),
-              const SizedBox(width: 8),
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.farmaciaColor,
-                  side: const BorderSide(color: AppColors.farmaciaColor),
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                ),
-                onPressed: item.cantidad > 0
-                    ? () => _abrirTransferenciaAFarmacia(loaded, itemInicial: item)
-                    : null,
-                icon: const Icon(Icons.swap_horiz_rounded, size: 16),
-                label: const Text(
-                  'Transferir a Farmacia',
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                 ),
               ),

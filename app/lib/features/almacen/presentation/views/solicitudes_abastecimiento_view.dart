@@ -251,7 +251,7 @@ class _SolicitudesAbastecimientoViewState
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '${it.nombreMedicamento} ${it.concentracion}',
+                      '${it.nombreMedicamento} ${it.formaFarmaceutica ?? ""}',
                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                     ),
                   ),

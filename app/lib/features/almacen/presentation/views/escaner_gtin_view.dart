@@ -199,7 +199,7 @@ class _EscanerGtinViewState extends State<EscanerGtinView>
                         ),
                       ),
                       title: Text(item.nombreComercial ?? 'Medicamento'),
-                      subtitle: Text('GTIN: ${item.gtin} • ${item.formaFarmaceutica}'),
+                      subtitle: Text('GTIN: ${item.gtin} • ${item.presentacion}'),
                       trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
                       onTap: () {
                         Navigator.of(ctx).pop();

@@ -4,7 +4,7 @@ class PedidoAbastecimientoItemEntity {
   final String pedidoId;
   final String medicamentoId;
   final String nombreMedicamento;
-  final String concentracion;
+  final String? formaFarmaceutica;
   final int cantidadSolicitada;
   final int cantidadDespachada;
 
@@ -13,7 +13,7 @@ class PedidoAbastecimientoItemEntity {
     required this.pedidoId,
     required this.medicamentoId,
     required this.nombreMedicamento,
-    this.concentracion = '',
+    this.formaFarmaceutica = '',
     required this.cantidadSolicitada,
     this.cantidadDespachada = 0,
   });

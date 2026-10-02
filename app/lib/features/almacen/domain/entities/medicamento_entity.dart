@@ -4,8 +4,10 @@ class MedicamentoEntity {
   final String gtin;
   final String nombreComercial;
   final String principioActivo;
-  final String formaFarmaceutica;
-  final String concentracion;
+  final String presentacion;
+  final String? laboratorio;
+  final String? codArt;
+  final double? precioKairos;
   final String? registroSanitario;
   final String unidadPresentacion;
   final int cantidadPorPresentacion;
@@ -19,8 +21,10 @@ class MedicamentoEntity {
     required this.gtin,
     required this.nombreComercial,
     required this.principioActivo,
-    required this.formaFarmaceutica,
-    required this.concentracion,
+    required this.presentacion,
+    this.laboratorio,
+    this.codArt,
+    this.precioKairos,
     this.registroSanitario,
     this.unidadPresentacion = 'unidad',
     this.cantidadPorPresentacion = 1,

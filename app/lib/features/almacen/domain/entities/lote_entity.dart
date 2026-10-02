@@ -13,7 +13,12 @@ class LoteEntity {
   final String numeroLote;
   final DateTime? fechaFabricacion;
   final DateTime fechaVencimiento;
-  final String? distribuidor;
+  final String? laboratorio;
+  final String? proveedor;
+  final double? precioCompra;
+  final double? precioVenta;
+  final String? numBoleta;
+  final String? justificacion;
   final double? temperaturaRecepcion;
   final String? observaciones;
   final bool activo;
@@ -24,7 +29,12 @@ class LoteEntity {
     required this.numeroLote,
     this.fechaFabricacion,
     required this.fechaVencimiento,
-    this.distribuidor,
+    this.laboratorio,
+    this.proveedor,
+    this.precioCompra,
+    this.precioVenta,
+    this.numBoleta,
+    this.justificacion,
     this.temperaturaRecepcion,
     this.observaciones,
     this.activo = true,
