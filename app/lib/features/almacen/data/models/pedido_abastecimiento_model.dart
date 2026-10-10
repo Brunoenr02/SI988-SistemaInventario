@@ -9,6 +9,7 @@ class PedidoAbastecimientoItemModel extends PedidoAbastecimientoItemEntity {
     super.formaFarmaceutica,
     required super.cantidadSolicitada,
     super.cantidadDespachada,
+    super.loteId,
   });
 
   factory PedidoAbastecimientoItemModel.fromMap(Map<String, dynamic> map) {
@@ -22,6 +23,7 @@ class PedidoAbastecimientoItemModel extends PedidoAbastecimientoItemEntity {
       formaFarmaceutica: med?['forma_farmaceutica']?.toString() ?? '',
       cantidadSolicitada: (map['cantidad_solicitada'] as num?)?.toInt() ?? 0,
       cantidadDespachada: (map['cantidad_despachada'] as num?)?.toInt() ?? 0,
+      loteId: map['lote_id']?.toString(),
     );
   }
 }
@@ -32,12 +34,26 @@ class PedidoAbastecimientoModel extends PedidoAbastecimientoEntity {
     required super.codigo,
     super.solicitanteId,
     super.solicitanteNombre,
+    super.responsableAlmacenId,
+    super.responsableFarmaciaId,
     super.areaOrigen,
     super.areaDestino,
     super.estado,
+    super.turno,
+    super.justificacion,
+    super.modalidadEntrega,
+    super.confirmadoAlmacen,
+    super.confirmadoFarmacia,
     super.notas,
+    super.notasAlmacen,
+    super.motivoRechazo,
     required super.fechaSolicitud,
+    super.fechaToma,
+    super.fechaListo,
     super.fechaDespacho,
+    super.fechaConfirmacionAlmacen,
+    super.fechaConfirmacionFarmacia,
+    super.fechaCompletado,
     super.items,
   });
 
@@ -53,16 +69,40 @@ class PedidoAbastecimientoModel extends PedidoAbastecimientoEntity {
       id: map['id']?.toString() ?? '',
       codigo: map['codigo']?.toString() ?? 'PED-2026',
       solicitanteId: map['solicitante_id']?.toString(),
-      solicitanteNombre: profile?['nombre']?.toString() ?? 'Farmacia de Turno',
+      solicitanteNombre: profile?['nombre']?.toString() ?? 'Guardia de Farmacia',
+      responsableAlmacenId: map['responsable_almacen_id']?.toString(),
+      responsableFarmaciaId: map['responsable_farmacia_id']?.toString(),
       areaOrigen: map['area_origen']?.toString() ?? 'FARMACIA',
       areaDestino: map['area_destino']?.toString() ?? 'ALMACEN',
       estado: map['estado']?.toString() ?? 'PENDIENTE',
+      turno: map['turno']?.toString() ?? 'DIA',
+      justificacion: map['justificacion']?.toString() ?? 'RELLENAR_STOCK',
+      modalidadEntrega: map['modalidad_entrega']?.toString(),
+      confirmadoAlmacen: map['confirmado_almacen'] as bool? ?? false,
+      confirmadoFarmacia: map['confirmado_farmacia'] as bool? ?? false,
       notas: map['notas']?.toString(),
+      notasAlmacen: map['notas_almacen']?.toString(),
+      motivoRechazo: map['motivo_rechazo']?.toString(),
       fechaSolicitud: map['fecha_solicitud'] != null
-          ? DateTime.tryParse(map['fecha_solicitud'].toString()) ?? DateTime.now()
+          ? DateTime.tryParse(map['fecha_solicitud'].toString())?.toLocal() ?? DateTime.now()
           : DateTime.now(),
+      fechaToma: map['fecha_toma'] != null
+          ? DateTime.tryParse(map['fecha_toma'].toString())?.toLocal()
+          : null,
+      fechaListo: map['fecha_listo'] != null
+          ? DateTime.tryParse(map['fecha_listo'].toString())?.toLocal()
+          : null,
       fechaDespacho: map['fecha_despacho'] != null
-          ? DateTime.tryParse(map['fecha_despacho'].toString())
+          ? DateTime.tryParse(map['fecha_despacho'].toString())?.toLocal()
+          : null,
+      fechaConfirmacionAlmacen: map['fecha_confirmacion_almacen'] != null
+          ? DateTime.tryParse(map['fecha_confirmacion_almacen'].toString())?.toLocal()
+          : null,
+      fechaConfirmacionFarmacia: map['fecha_confirmacion_farmacia'] != null
+          ? DateTime.tryParse(map['fecha_confirmacion_farmacia'].toString())?.toLocal()
+          : null,
+      fechaCompletado: map['fecha_completado'] != null
+          ? DateTime.tryParse(map['fecha_completado'].toString())?.toLocal()
           : null,
       items: itemsParsed,
     );

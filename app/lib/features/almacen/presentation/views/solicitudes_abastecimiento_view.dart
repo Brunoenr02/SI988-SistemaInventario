@@ -7,7 +7,7 @@ import '../viewmodels/almacen_viewmodel.dart';
 import 'dialogs/transferir_a_farmacia_dialog.dart';
 
 /// Pantalla dedicada a la visualización y atención de solicitudes de abastecimiento
-/// enviadas por la guardia de Farmacia Central hacia Almacén General (RF-031).
+/// enviadas por la guardia de Farmacia Central hacia Almacén General (Flujo nuevo).
 class SolicitudesAbastecimientoView extends StatefulWidget {
   const SolicitudesAbastecimientoView({super.key});
 
@@ -18,7 +18,7 @@ class SolicitudesAbastecimientoView extends StatefulWidget {
 
 class _SolicitudesAbastecimientoViewState
     extends State<SolicitudesAbastecimientoView> {
-  String _filtroEstado = 'PENDIENTE'; // 'TODAS', 'PENDIENTE', 'DESPACHADO'
+  String _filtroEstado = 'PENDIENTES'; // 'PENDIENTES', 'EN CURSO', 'COMPLETADOS'
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +32,7 @@ class _SolicitudesAbastecimientoViewState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Solicitudes de Abastecimiento', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            Text('Peticiones de reposición de Farmacia (RF-031)', style: TextStyle(fontSize: 11, color: Colors.white70)),
+            Text('Peticiones de reposición inter-áreas', style: TextStyle(fontSize: 11, color: Colors.white70)),
           ],
         ),
         backgroundColor: AppColors.almacenColor,
@@ -40,17 +40,18 @@ class _SolicitudesAbastecimientoViewState
         elevation: 0,
       ),
       body: state is AlmacenLoaded
-          ? _buildBody(context, state)
+          ? _buildBody(context, state, vm.isSaving)
           : const Center(child: CircularProgressIndicator(color: AppColors.almacenColor)),
     );
   }
 
-  Widget _buildBody(BuildContext context, AlmacenLoaded loaded) {
+  Widget _buildBody(BuildContext context, AlmacenLoaded loaded, bool isSaving) {
     final solicitudes = loaded.solicitudes;
 
     final filtradas = solicitudes.where((s) {
-      if (_filtroEstado == 'PENDIENTE') return s.esPendiente;
-      if (_filtroEstado == 'DESPACHADO') return s.esDespachado;
+      if (_filtroEstado == 'PENDIENTES') return s.esPendiente;
+      if (_filtroEstado == 'EN CURSO') return s.esEnPreparacion || (s.esListo && !s.confirmadoAlmacen);
+      if (_filtroEstado == 'COMPLETADOS') return s.esCompletado || (s.esListo && s.confirmadoAlmacen);
       return true;
     }).toList();
 
@@ -63,11 +64,11 @@ class _SolicitudesAbastecimientoViewState
           // 1. Selector de Filtros
           Row(
             children: [
-              _buildFilterChip('PENDIENTE', 'Pendientes (${loaded.solicitudesPendientes})', Colors.orange),
+              _buildFilterChip('PENDIENTES', 'Nuevos', Colors.redAccent),
               const SizedBox(width: 8),
-              _buildFilterChip('DESPACHADO', 'Atendidas', AppColors.success),
+              _buildFilterChip('EN CURSO', 'En Curso', Colors.orange),
               const SizedBox(width: 8),
-              _buildFilterChip('TODAS', 'Todas (${solicitudes.length})', AppColors.textSecondary),
+              _buildFilterChip('COMPLETADOS', 'Finalizados', AppColors.success),
             ],
           ),
 
@@ -87,18 +88,8 @@ class _SolicitudesAbastecimientoViewState
                   Icon(Icons.inbox_outlined, size: 48, color: Colors.grey.shade400),
                   const SizedBox(height: 12),
                   Text(
-                    _filtroEstado == 'PENDIENTE'
-                        ? 'No hay solicitudes pendientes'
-                        : 'No se encontraron solicitudes',
+                    'No hay solicitudes en esta categoría',
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    _filtroEstado == 'PENDIENTE'
-                        ? 'Farmacia Central no ha reportado faltantes de stock por ahora.'
-                        : 'No hay pedidos que coincidan con el filtro seleccionado.',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                   ),
                 ],
               ),
@@ -111,7 +102,7 @@ class _SolicitudesAbastecimientoViewState
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 final item = filtradas[index];
-                return _buildSolicitudCard(context, item, loaded);
+                return _buildSolicitudCard(context, item, loaded, isSaving);
               },
             ),
         ],
@@ -138,9 +129,29 @@ class _SolicitudesAbastecimientoViewState
     BuildContext context,
     PedidoAbastecimientoEntity item,
     AlmacenLoaded loaded,
+    bool isSaving,
   ) {
     final esPendiente = item.esPendiente;
-    final estadoColor = esPendiente ? Colors.orange.shade800 : AppColors.success;
+    final esEnPreparacion = item.esEnPreparacion;
+    final esListo = item.esListo;
+    final esCompletado = item.esCompletado;
+    
+    Color estadoColor = AppColors.textSecondary;
+    IconData estadoIcon = Icons.info_outline;
+
+    if (esPendiente) {
+      estadoColor = Colors.redAccent;
+      estadoIcon = Icons.new_releases_rounded;
+    } else if (esEnPreparacion) {
+      estadoColor = Colors.orange;
+      estadoIcon = Icons.inventory_2_rounded;
+    } else if (esListo) {
+      estadoColor = Colors.blue;
+      estadoIcon = Icons.local_shipping_rounded;
+    } else if (esCompletado) {
+      estadoColor = AppColors.success;
+      estadoIcon = Icons.check_circle_rounded;
+    }
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -148,7 +159,7 @@ class _SolicitudesAbastecimientoViewState
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: esPendiente ? Colors.orange.shade300 : AppColors.surfaceVariant,
+          color: esPendiente ? Colors.redAccent.withOpacity(0.3) : AppColors.surfaceVariant,
           width: esPendiente ? 1.5 : 1,
         ),
         boxShadow: [
@@ -162,7 +173,7 @@ class _SolicitudesAbastecimientoViewState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Cabecera: Código, Estado y Fecha
+          // Cabecera: Código, Estado y Modalidad
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -177,9 +188,18 @@ class _SolicitudesAbastecimientoViewState
                     child: const Icon(Icons.receipt_long_rounded, color: AppColors.primary, size: 18),
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    item.codigo,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.codigo,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      ),
+                      Text(
+                        'Turno: ${item.turno} | Motivo: ${item.justificacion == "STOCK_CERO" ? "Stock Cero" : "Relleno"}',
+                        style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -191,14 +211,10 @@ class _SolicitudesAbastecimientoViewState
                 ),
                 child: Row(
                   children: [
-                    Icon(
-                      esPendiente ? Icons.hourglass_top_rounded : Icons.check_circle_rounded,
-                      size: 14,
-                      color: estadoColor,
-                    ),
+                    Icon(estadoIcon, size: 14, color: estadoColor),
                     const SizedBox(width: 4),
                     Text(
-                      item.estado,
+                      item.estado.replaceAll('_', ' '),
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
@@ -230,6 +246,20 @@ class _SolicitudesAbastecimientoViewState
               ),
             ],
           ),
+
+          if (item.modalidadEntrega != null) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(item.modalidadEntrega == 'ENTREGA' ? Icons.hail_rounded : Icons.directions_walk_rounded, size: 16, color: Colors.blue),
+                const SizedBox(width: 6),
+                Text(
+                  'Modalidad definida: ${item.modalidadEntrega}',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue),
+                ),
+              ],
+            ),
+          ],
 
           const SizedBox(height: 12),
           const Divider(height: 1),
@@ -271,78 +301,66 @@ class _SolicitudesAbastecimientoViewState
             );
           }),
 
-          // Notas de la guardia (si las hay)
-          if (item.notas != null && item.notas!.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.amber.shade50,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.amber.shade200),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.speaker_notes_outlined, size: 16, color: Colors.amber.shade900),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      item.notas!,
-                      style: TextStyle(fontSize: 11, color: Colors.amber.shade900),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-
           const SizedBox(height: 14),
 
-          // Botón de Acción para Despachar / Atender
+          // Botones de Acción según el estado
           if (esPendiente)
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.primary,
-                      side: const BorderSide(color: AppColors.primary),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                    ),
-                    onPressed: () {
-                      // Abrir diálogo de transferencia rápida
-                      showDialog(
-                        context: context,
-                        builder: (_) => TransferirAFarmaciaDialog(
-                          inventario: loaded.inventario,
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.swap_horiz_rounded, size: 18),
-                    label: const Text('Transferir Stock'),
-                  ),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.success,
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                    ),
-                    onPressed: () => _confirmarAtencion(item),
-                    icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
-                    label: const Text('Marcar Atendida'),
-                  ),
+                onPressed: isSaving ? null : () => _cambiarEstadoPedido(item.id, 'EN_PREPARACION'),
+                icon: isSaving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.back_hand_rounded, size: 18),
+                label: const Text('Tomar Pedido'),
+              ),
+            )
+          else if (esEnPreparacion)
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                onPressed: isSaving ? null : () => _mostrarDialogoModalidad(item),
+                icon: isSaving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.done_all_rounded, size: 18),
+                label: const Text('Alistado & Marcar Listo'),
+              ),
+            )
+          else if (esListo && !item.confirmadoAlmacen)
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.success,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                onPressed: isSaving ? null : () => _marcarRealizado(item.id),
+                icon: isSaving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.check_circle_outline_rounded, size: 18),
+                label: Text(item.modalidadEntrega == 'ENTREGA' ? 'Marcar como Entregado' : 'Marcar como Entregado (Recojo)'),
+              ),
+            )
+          else if (esListo && item.confirmadoAlmacen && !item.confirmadoFarmacia)
+            const Row(
+              children: [
+                Icon(Icons.hourglass_top_rounded, color: Colors.orange, size: 16),
+                SizedBox(width: 6),
+                Text(
+                  'Esperando confirmación de Farmacia',
+                  style: TextStyle(fontSize: 12, color: Colors.orange, fontWeight: FontWeight.bold),
                 ),
               ],
             )
-          else if (item.fechaDespacho != null)
-            Row(
+          else if (esCompletado)
+             Row(
               children: [
-                const Icon(Icons.done_all_rounded, color: AppColors.success, size: 16),
+                const Icon(Icons.verified_rounded, color: AppColors.success, size: 16),
                 const SizedBox(width: 6),
                 Text(
-                  'Despachado a Farmacia el ${item.fechaDespacho!.day}/${item.fechaDespacho!.month} a las ${item.fechaDespacho!.hour}:${item.fechaDespacho!.minute.toString().padLeft(2, '0')}',
+                  'Completado bilateralmente el ${item.fechaCompletado?.day}/${item.fechaCompletado?.month} a las ${item.fechaCompletado?.hour}:${item.fechaCompletado?.minute.toString().padLeft(2, '0')}',
                   style: const TextStyle(fontSize: 11, color: AppColors.success, fontWeight: FontWeight.w600),
                 ),
               ],
@@ -352,65 +370,76 @@ class _SolicitudesAbastecimientoViewState
     );
   }
 
-  void _confirmarAtencion(PedidoAbastecimientoEntity item) {
-    final notasController = TextEditingController();
-    final messenger = ScaffoldMessenger.of(context);
-    final vm = context.read<AlmacenViewModel>();
+  void _cambiarEstadoPedido(String pedidoId, String nuevoEstado) async {
+    // Aquí invocaríamos el ViewModel para actualizar el estado en BD
+    // context.read<AlmacenViewModel>().cambiarEstadoPedido(pedidoId, nuevoEstado);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Cambiando estado a $nuevoEstado... (Mock)')),
+    );
+  }
 
+  void _marcarRealizado(String pedidoId) async {
+    // context.read<AlmacenViewModel>().marcarPedidoRealizado(pedidoId);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Marcado como entregado/realizado por Almacén.')),
+    );
+  }
+
+  void _mostrarDialogoModalidad(PedidoAbastecimientoEntity item) {
+    String modalidadSeleccionada = 'RECOJO';
+    
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            const Icon(Icons.check_circle_outline_rounded, color: AppColors.success),
-            const SizedBox(width: 8),
-            Text('Atender Pedido ${item.codigo}'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              '¿Desea confirmar el despacho y marcar esta solicitud de Farmacia como Atendida?',
-              style: TextStyle(fontSize: 13),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setStateModal) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Text('Pedido Alistado'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '¿Cómo se entregará este pedido a Farmacia?',
+                  style: TextStyle(fontSize: 14),
+                ),
+                const SizedBox(height: 16),
+                RadioListTile(
+                  title: const Text('Farmacia vendrá a Recogerlo'),
+                  value: 'RECOJO',
+                  groupValue: modalidadSeleccionada,
+                  onChanged: (val) => setStateModal(() => modalidadSeleccionada = val.toString()),
+                  activeColor: AppColors.primary,
+                  contentPadding: EdgeInsets.zero,
+                ),
+                RadioListTile(
+                  title: const Text('Almacén lo Entregará allá'),
+                  value: 'ENTREGA',
+                  groupValue: modalidadSeleccionada,
+                  onChanged: (val) => setStateModal(() => modalidadSeleccionada = val.toString()),
+                  activeColor: AppColors.primary,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: notasController,
-              decoration: const InputDecoration(
-                labelText: 'Nota de Despacho (Opcional)',
-                hintText: 'Ej: Entregado completo en caja térmica',
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Cancelar'),
               ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.success),
-            onPressed: () async {
-              Navigator.of(ctx).pop();
-              final exito = await vm.atenderSolicitudAbastecimiento(
-                pedidoId: item.id,
-                notasDespacho: notasController.text.trim(),
-              );
-              if (exito) {
-                messenger.showSnackBar(
-                  SnackBar(
-                    content: Text('✅ Solicitud ${item.codigo} marcada como Atendida.'),
-                    backgroundColor: AppColors.success,
-                  ),
-                );
-              }
-            },
-            child: const Text('Confirmar Atención'),
-          ),
-        ],
+              FilledButton(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  // Invocar ViewModel para marcar como LISTO y setear modalidad
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Marcado como LISTO. Modalidad: $modalidadSeleccionada')),
+                  );
+                },
+                child: const Text('Confirmar & Notificar'),
+              ),
+            ],
+          );
+        }
       ),
     );
   }

@@ -108,27 +108,70 @@ CREATE TABLE IF NOT EXISTS public.inventario_stock (
     CONSTRAINT uq_lote_area UNIQUE (lote_id, area_codigo)
 );
 
--- 8. TABLA DE PEDIDOS DE ABASTECIMIENTO (Farmacia Central -> Almacén General)
+-- 8. TABLA DE PEDIDOS DE ABASTECIMIENTO (Flujo inter-áreas: Farmacia ↔ Almacén)
+-- Registra cada solicitud de reposición de stock entre áreas clínicas.
+-- Flujo: PENDIENTE → EN_PREPARACION → LISTO → COMPLETADO (o RECHAZADO en cualquier punto)
 CREATE TABLE IF NOT EXISTS public.pedidos_abastecimiento (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    codigo TEXT UNIQUE NOT NULL, -- Ej: 'PED-2026-001'
-    solicitante_id UUID REFERENCES public.profiles(id),
-    area_origen TEXT NOT NULL DEFAULT 'FARMACIA',
-    area_destino TEXT NOT NULL DEFAULT 'ALMACEN',
-    estado TEXT NOT NULL DEFAULT 'PENDIENTE' CHECK (estado IN ('PENDIENTE', 'DESPACHADO', 'RECIBIDO', 'RECHAZADO')),
-    notas TEXT,
-    motivo_rechazo TEXT,
+    codigo TEXT UNIQUE NOT NULL, -- Correlativo automático. Ej: 'PED-2026-001'
+
+    -- ¿Quién pidió? (personal de farmacia que genera la solicitud)
+    solicitante_id UUID NOT NULL REFERENCES public.profiles(id),
+
+    -- Áreas involucradas (FK a tabla maestra de áreas para escalabilidad)
+    area_origen TEXT NOT NULL DEFAULT 'FARMACIA' REFERENCES public.areas(codigo) ON UPDATE CASCADE,
+    area_destino TEXT NOT NULL DEFAULT 'ALMACEN'  REFERENCES public.areas(codigo) ON UPDATE CASCADE,
+
+    -- ¿Quién despachó en almacén? (responsable que toma y prepara el pedido)
+    responsable_almacen_id UUID REFERENCES public.profiles(id),
+
+    -- ¿Quién recibió en farmacia? (responsable asignado para recojo o que confirma recepción)
+    responsable_farmacia_id UUID REFERENCES public.profiles(id),
+
+    -- Contexto operativo del pedido (lo llena farmacia al solicitar)
+    turno TEXT NOT NULL DEFAULT 'DIA' CHECK (turno IN ('DIA', 'TARDE', 'NOCHE')),
+    justificacion TEXT NOT NULL DEFAULT 'RELLENAR_STOCK' CHECK (justificacion IN ('STOCK_CERO', 'RELLENAR_STOCK')),
+
+    -- Modalidad de entrega (lo decide ALMACÉN cuando marca "Listo")
+    -- ENTREGA = almacén lo llevará a farmacia | RECOJO = farmacia debe ir a buscarlo
+    modalidad_entrega TEXT CHECK (modalidad_entrega IN ('ENTREGA', 'RECOJO')),
+
+    -- Estado del flujo con 5 etapas claras
+    -- PENDIENTE: Farmacia envió la solicitud, almacén aún no la ve/toma
+    -- EN_PREPARACION: Almacén tomó el pedido y está alistando los ítems
+    -- LISTO: Almacén terminó de alistar, eligió modalidad, esperando entrega/recojo
+    -- COMPLETADO: Ambas partes confirmaron → registro bloqueado
+    -- RECHAZADO: Almacén rechazó la solicitud
+    estado TEXT NOT NULL DEFAULT 'PENDIENTE' CHECK (estado IN (
+        'PENDIENTE', 'EN_PREPARACION', 'LISTO', 'COMPLETADO', 'RECHAZADO'
+    )),
+
+    -- Confirmación bilateral (ambos deben confirmar para COMPLETADO)
+    confirmado_almacen BOOLEAN NOT NULL DEFAULT false,  -- Almacén marcó "Entregado/Realizado"
+    confirmado_farmacia BOOLEAN NOT NULL DEFAULT false,  -- Farmacia marcó "Recibido/Realizado"
+
+    notas TEXT,                -- Observaciones de farmacia al solicitar
+    notas_almacen TEXT,        -- Observaciones de almacén al despachar
+    motivo_rechazo TEXT,       -- Solo si estado = RECHAZADO
+
+    -- Timestamps del ciclo de vida (cada transición de estado queda registrada)
     fecha_solicitud TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
-    fecha_despacho TIMESTAMPTZ,
-    fecha_recepcion TIMESTAMPTZ
+    fecha_toma TIMESTAMPTZ,        -- Cuándo almacén presionó "Tomar Pedido"
+    fecha_listo TIMESTAMPTZ,       -- Cuándo almacén presionó "Listo"
+    fecha_confirmacion_almacen TIMESTAMPTZ,   -- Cuándo almacén marcó realizado
+    fecha_confirmacion_farmacia TIMESTAMPTZ,  -- Cuándo farmacia marcó recibido
+    fecha_completado TIMESTAMPTZ   -- Cuándo ambas confirmaciones se cumplieron
 );
 
+-- 8b. DETALLE DE ÍTEMS POR PEDIDO (con trazabilidad de lote al despachar)
 CREATE TABLE IF NOT EXISTS public.pedidos_abastecimiento_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     pedido_id UUID NOT NULL REFERENCES public.pedidos_abastecimiento(id) ON DELETE CASCADE,
     medicamento_id UUID NOT NULL REFERENCES public.medicamentos(id),
     cantidad_solicitada INT NOT NULL CHECK (cantidad_solicitada > 0),
-    cantidad_despachada INT NOT NULL DEFAULT 0 CHECK (cantidad_despachada >= 0)
+    cantidad_despachada INT NOT NULL DEFAULT 0 CHECK (cantidad_despachada >= 0),
+    -- Lote específico del que se descuenta al despachar (FEFO: primero el que vence antes)
+    lote_id UUID REFERENCES public.lotes(id)
 );
 
 -- 9. TABLA DE KITS PREARMADOS (Para Quirófano SOP, Coche de Paros, etc.)
@@ -183,18 +226,32 @@ CREATE TABLE IF NOT EXISTS public.dispensacion_items (
     cantidad_entregada INT NOT NULL DEFAULT 0 CHECK (cantidad_entregada >= 0)
 );
 
--- 11. TABLA DE TRAZABILIDAD Y AUDITORÍA INMUTABLE
+-- 11. TABLA DE TRAZABILIDAD Y AUDITORÍA INMUTABLE (Nivel Hospitalario)
 CREATE TABLE IF NOT EXISTS public.auditoria_trazabilidad (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tipo_evento TEXT NOT NULL, -- 'INGRESO_ALMACEN', 'TRANSFERENCIA_FARMACIA', 'DISPENSACION_AREA', 'AJUSTE_STOCK'
+    tipo_evento TEXT NOT NULL, -- 'INGRESO_ALMACEN', 'TRANSFERENCIA_FARMACIA', 'DISPENSACION_AREA', 'AJUSTE_STOCK', 'CREACION_PEDIDO'
+    
+    -- Trazabilidad de Entidad (¿En qué documento exacto pasó esto?)
+    entidad_referencia_id UUID, -- Ej: el ID de pedidos_abastecimiento, dispensaciones, etc.
+    tabla_referencia TEXT,      -- Ej: 'pedidos_abastecimiento'
+    
     medicamento_id UUID REFERENCES public.medicamentos(id),
     lote_id UUID REFERENCES public.lotes(id),
     usuario_id UUID REFERENCES public.profiles(id),
-    area_origen TEXT,
-    area_destino TEXT,
+    
+    area_origen TEXT REFERENCES public.areas(codigo) ON DELETE SET NULL,
+    area_destino TEXT REFERENCES public.areas(codigo) ON DELETE SET NULL,
+    
+    -- Magnitud del movimiento
     cantidad INT,
+    
+    -- Snapshots de Estado (El Antes y el Después para comprobación matemática)
+    estado_anterior JSONB,
+    estado_nuevo JSONB,
+    
     descripcion TEXT,
-    detalles JSONB DEFAULT '{}'::jsonb,
+    detalles_extra JSONB DEFAULT '{}'::jsonb,
+    
     fecha TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
